@@ -1,0 +1,22 @@
+{
+  "username": "sevbanarkn",
+  "avatar": "assets/avatar.jpg",
+  "ascii": {
+    "cols": 46,
+    "invert": false,
+    "remove_background": true
+  },
+  "card": {
+    "title": "sevbanarkn@github",
+    "rows": [
+      ["Role",     "Backend Developer"],
+      ["Company",  "Barlas Lojistik"],
+      ["Stack",    ".NET 8 / C# / ASP.NET Core"],
+      ["Database", "MSSQL / Dapper / EF Core"],
+      ["Also",     "Python / TypeScript / Docker"],
+      ["Focus",    "ERP, logistics & workflow systems"],
+      ["Editor",   "Visual Studio / VS Code"],
+      ["Uptime",   "coffee-driven"]
+    ]
+  }
+}

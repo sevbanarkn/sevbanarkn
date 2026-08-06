@@ -1,0 +1,8 @@
+# Optional extras for the ASCII avatar. Heavy (rembg pulls onnxruntime and
+# downloads a ~170 MB model on first run), so they are installed only when
+# assets/avatar.jpg exists. Without them the avatar still renders, just with
+# autocontrast instead of CLAHE and with the original background left in.
+numpy>=1.26
+opencv-python-headless>=4.9
+rembg>=2.0.56
+onnxruntime>=1.17
