@@ -154,50 +154,50 @@ def _neighbours(cell):
             yield ncol, nrow
 
 
-def wander_order(seed):
-    """A random Hamiltonian path over the grid, or None if the search stalls.
+def _is_valid_route(path):
+    """Every slot visited exactly once, every step exactly one cell."""
+    if len(path) != WEEKS * 7 or len(set(path)) != len(path):
+        return False
+    return all(abs(a[0] - b[0]) + abs(a[1] - b[1]) == 1
+               for a, b in zip(path, path[1:]))
+
+
+def wander_order(seed, iterations=8000):
+    """A randomised Hamiltonian path over the grid, or None if it comes out bad.
 
     A plain random walk is not usable here: it revisits cells, leaves most of
-    the year uneaten, and its steps would still have to be unit length. So the
-    route is built as a self-avoiding walk that covers every slot exactly once
-    -- it looks aimless but eats the whole grid, and every step stays one cell
-    long, which is what keeps the CSS timing linear.
+    the year uneaten, and its steps still have to be unit length to keep the
+    CSS timing linear. So the route must cover every slot exactly once and only
+    ever step to a neighbour.
 
-    Warnsdorff's rule (always head for the most enclosed neighbour) makes dead
-    ends rare; the explicit stack unwinds the few that still happen.
+    Greedy construction (Warnsdorff) was tried first and rejected: preferring
+    the most enclosed neighbour makes the walk hug the walls, and it produced a
+    path with 106 direction changes against the plain zigzag's 104 -- visually
+    the same sweep. Instead this starts from the zigzag and shuffles it with
+    backbite moves, which is the standard way to sample lattice Hamiltonians.
+
+    One backbite: take the tail, pick a random grid-neighbour u = path[j] of it,
+    and reverse everything after j. That drops edge (path[j], path[j+1]) and
+    adds edge (path[j], tail) -- both grid edges -- so the path stays
+    Hamiltonian while its shape is scrambled.
     """
     rng = random.Random(seed)
-    total = WEEKS * 7
+    path = snake_order()
+    total = len(path)
+    index = {cell: i for i, cell in enumerate(path)}
 
-    def ranked(cell, visited):
-        options = [n for n in _neighbours(cell) if n not in visited]
-        rng.shuffle(options)                          # random tie-break
-        options.sort(key=lambda n: sum(1 for m in _neighbours(n)
-                                       if m not in visited))
-        return options
+    for _ in range(iterations):
+        if rng.random() < 0.1:                        # mix the other end too
+            path.reverse()
+            index = {cell: i for i, cell in enumerate(path)}
+        j = index[rng.choice(list(_neighbours(path[-1])))]
+        if j >= total - 2:                            # already the tail's
+            continue                                  # neighbour, no-op
+        path[j + 1:] = path[:j:-1]
+        for k in range(j + 1, total):
+            index[path[k]] = k
 
-    # (0, 0) is on the majority colour of the board's checkerboard split, which
-    # is a precondition for a Hamiltonian path to exist on an odd-sized grid.
-    start = (0, 0)
-    path, visited = [start], {start}
-    stack = [ranked(start, visited)]
-    budget = 500_000
-
-    while len(path) < total:
-        budget -= 1
-        if budget <= 0 or not path:
-            return None
-        options = stack[-1]
-        if not options:
-            visited.discard(path.pop())               # dead end, step back
-            stack.pop()
-            continue
-        nxt = options.pop(0)
-        path.append(nxt)
-        visited.add(nxt)
-        stack.append(ranked(nxt, visited))
-
-    return path
+    return path if _is_valid_route(path) else None
 
 
 def snake_layer(grid_x, grid_y, step, order):
