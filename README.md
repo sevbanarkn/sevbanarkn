@@ -15,10 +15,11 @@
 
 ```console
 sevbanarkn@github:~$ whoami
-Backend developer. .NET, C#, MSSQL. Logistics and workflow systems at Barlas Lojistik.
+Full-stack developer. .NET and C# on the back, React and TypeScript on the front.
+ERP, logistics and workflow systems at Barlas Lojistik.
 
 sevbanarkn@github:~$ ls ~/interests
-api-design/   clean-architecture/   sql-tuning/   automation/
+api-design/   clean-architecture/   sql-tuning/   react-ui/   automation/
 
 sevbanarkn@github:~$ cat ~/.contact
 github  https://github.com/sevbanarkn
