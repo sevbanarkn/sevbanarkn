@@ -24,6 +24,9 @@ LABEL_W = 30                 # left gutter for Mon/Wed/Fri
 MONTH_H = 18
 WEEKS = 53
 
+SNAKE_STEP = 0.05            # seconds the head spends crossing one cell
+SNAKE_COLOURS = ["#bc8cff", "#a371f7", "#8957e5", "#6e40c9", "#553098"]
+
 DAY_LABELS = {1: "Mon", 3: "Wed", 5: "Fri"}
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -127,6 +130,64 @@ def month_ticks(columns):
     return ticks
 
 
+def snake_order():
+    """Boustrophedon walk over every grid slot: down column 0, up column 1, ...
+
+    Consecutive centres are always exactly PITCH apart -- including the step
+    across a column boundary -- so a linear CSS timing function gives the
+    snake a constant speed with no easing tricks.
+    """
+    order = []
+    for col in range(WEEKS):
+        rows = range(7) if col % 2 == 0 else range(6, -1, -1)
+        order.extend((col, row) for row in rows)
+    return order
+
+
+def snake_layer(grid_x, grid_y):
+    """Return (body_elements, css) for the snake and the cells it eats."""
+    order = snake_order()
+    steps = len(order) - 1
+    dur = round(steps * SNAKE_STEP, 2)
+
+    def centre(col, row):
+        return (grid_x + col * PITCH + CELL / 2, grid_y + row * PITCH + CELL / 2)
+
+    # One shared keyframes rule drives every segment; the body is just the
+    # same ride offset in time, which is what makes it trail the head.
+    frames = []
+    for i, (col, row) in enumerate(order):
+        x, y = centre(col, row)
+        frames.append(f"{i / steps * 100:.4f}%{{transform:translate({x:.0f}px,{y:.0f}px)}}")
+
+    elements = []
+    for k, colour in enumerate(SNAKE_COLOURS):
+        size = CELL + 1 - k
+        elements.append(
+            f'  <rect class="sn" x="{-size / 2:.1f}" y="{-size / 2:.1f}" '
+            f'width="{size}" height="{size}" rx="{3 - k * 0.4:.1f}" fill="{colour}" '
+            f'style="animation-delay:{k * SNAKE_STEP:.3f}s"/>'
+        )
+    elements.reverse()          # tail first so the head paints on top
+
+    # Each cell disappears as the head reaches it and regrows shortly before
+    # the head comes back round, so the loop never visibly restarts.
+    delays = {}
+    for i, (col, row) in enumerate(order):
+        delays[(col, row)] = i * SNAKE_STEP
+
+    css = (
+        "@keyframes ride{" + "".join(frames) + "}"
+        "@keyframes eaten{0%{opacity:1}1%{opacity:0}"
+        "86%{opacity:0}96%{opacity:1}100%{opacity:1}}"
+        f".sn{{animation:ride {dur}s linear infinite both}}"
+        f".e{{animation:eaten {dur}s linear infinite both}}"
+        "@media (prefers-reduced-motion:reduce){"
+        ".sn{display:none}.e{animation:none;opacity:1}}"
+    )
+    return elements, css, delays
+
+
 def build():
     cfg = load_config()
     user = cfg["username"]
@@ -154,22 +215,43 @@ def build():
         body.append(f'  <text x="{PAD_X}" y="{grid_y + row * PITCH + CELL - 1}" '
                     f'fill="{DIM}" font-size="10">{label}</text>')
 
-    # Wave: delay grows with the column so the year fills in left to right.
+    snake = bool(cfg.get("snake", True))
+    if snake:
+        segments, snake_css, eat_delays = snake_layer(grid_x, grid_y)
+
+    # Empty slots first: eaten cells fade to reveal this layer underneath.
+    for col, week in enumerate(columns):
+        for row, cell in enumerate(week):
+            if cell is None:
+                continue
+            body.append(f'  <rect x="{grid_x + col * PITCH}" '
+                        f'y="{grid_y + row * PITCH}" width="{CELL}" '
+                        f'height="{CELL}" rx="2" fill="{LEVELS[0]}"/>')
+
     for col, week in enumerate(columns):
         for row, cell in enumerate(week):
             if cell is None:
                 continue
             date, level, count = cell
-            delay = col * 0.022 + row * 0.012
+            if level == 0:
+                continue                              # nothing to eat here
             plural = "" if count == 1 else "s"
+            if snake:
+                anim = (f'class="e" style="animation-delay:'
+                        f'{eat_delays[(col, row)]:.2f}s"')
+            else:
+                # Fallback wave: fills the year in from the left.
+                anim = f'class="d" style="animation-delay:{col * 0.022 + row * 0.012:.2f}s"'
             body.append(
-                f'  <rect class="d" x="{grid_x + col * PITCH}" '
+                f'  <rect {anim} x="{grid_x + col * PITCH}" '
                 f'y="{grid_y + row * PITCH}" width="{CELL}" height="{CELL}" '
-                f'rx="2" fill="{LEVELS[min(level, 4)]}" '
-                f'style="animation-delay:{delay:.2f}s">'
+                f'rx="2" fill="{LEVELS[min(level, 4)]}">'
                 f'<title>{count} contribution{plural} on {date.isoformat()}</title>'
                 f'</rect>'
             )
+
+    if snake:
+        body.extend(segments)
 
     # Legend.
     lg_y = grid_y + 7 * PITCH + 12
@@ -186,13 +268,16 @@ def build():
     body.append(f'  <text x="{PAD_X}" y="{lg_y + CELL - 1}" fill="{ACCENT}" '
                 f'font-size="10" opacity="0.7">updated {stamp}</text>')
 
-    style = (
-        "@keyframes pop{from{opacity:0;transform:scale(.3)}"
-        "to{opacity:1;transform:scale(1)}}"
-        ".d{opacity:0;transform-box:fill-box;transform-origin:center;"
-        "animation:pop .4s cubic-bezier(.2,.9,.3,1.4) both}"
-        "@media (prefers-reduced-motion:reduce){.d{animation:none;opacity:1}}"
-    )
+    if snake:
+        style = snake_css
+    else:
+        style = (
+            "@keyframes pop{from{opacity:0;transform:scale(.3)}"
+            "to{opacity:1;transform:scale(1)}}"
+            ".d{opacity:0;transform-box:fill-box;transform-origin:center;"
+            "animation:pop .4s cubic-bezier(.2,.9,.3,1.4) both}"
+            "@media (prefers-reduced-motion:reduce){.d{animation:none;opacity:1}}"
+        )
     write_svg("contributions.svg", "\n".join(body), width, height, style)
 
 

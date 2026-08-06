@@ -32,7 +32,8 @@ If the first run fails to push, enable
 ## Editing the card
 
 `config.json` holds everything shown on the neofetch panel — rows, title,
-ASCII width, whether to strip the photo background. No Python edits needed.
+ASCII width, whether to strip the photo background, and `"snake"` for the
+heatmap animation. No Python edits needed.
 
 ## Running locally
 
@@ -61,5 +62,6 @@ editors' SVG preview panes.
 - **Colour scheme.** An `<img>`-embedded SVG follows the *operating system*
   theme, not the theme selected in GitHub's settings. The panels therefore
   commit to a dark terminal look that reads correctly on both.
-- **Animations replay** whenever the browser reloads the image, not on a loop.
-  This is intentional; looping animations on a profile age badly.
+- **The snake loops forever**, the other two panels play once per page load.
+  Set `"snake": false` in `config.json` to swap the heatmap back to a
+  play-once fill-in wave.
