@@ -63,6 +63,8 @@ editors' SVG preview panes.
   theme, not the theme selected in GitHub's settings. The panels therefore
   commit to a dark terminal look that reads correctly on both.
 - **The snake loops forever**, the other two panels play once per page load.
-  `"snake_speed"` in `config.json` is seconds per cell — higher is slower, and
-  the loop lasts `370 x snake_speed` seconds. `"snake": false` swaps the
-  heatmap back to a play-once fill-in wave.
+  In `config.json`: `"snake_speed"` is seconds per cell (higher is slower; the
+  loop lasts `370 x snake_speed`), `"snake_path"` is `"wander"` for a random
+  route or `"serpentine"` for the mechanical zigzag, and `"snake": false`
+  swaps the heatmap back to a play-once fill-in wave. The wander route is
+  seeded by the date, so it changes daily; set `"snake_seed"` to pin one.

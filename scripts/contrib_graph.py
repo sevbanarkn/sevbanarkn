@@ -7,6 +7,7 @@ back to an empty grid rather than aborting the build.
 """
 
 import datetime as dt
+import random
 import re
 import sys
 
@@ -145,9 +146,62 @@ def snake_order():
     return order
 
 
-def snake_layer(grid_x, grid_y, step):
+def _neighbours(cell):
+    col, row = cell
+    for dcol, drow in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        ncol, nrow = col + dcol, row + drow
+        if 0 <= ncol < WEEKS and 0 <= nrow < 7:
+            yield ncol, nrow
+
+
+def wander_order(seed):
+    """A random Hamiltonian path over the grid, or None if the search stalls.
+
+    A plain random walk is not usable here: it revisits cells, leaves most of
+    the year uneaten, and its steps would still have to be unit length. So the
+    route is built as a self-avoiding walk that covers every slot exactly once
+    -- it looks aimless but eats the whole grid, and every step stays one cell
+    long, which is what keeps the CSS timing linear.
+
+    Warnsdorff's rule (always head for the most enclosed neighbour) makes dead
+    ends rare; the explicit stack unwinds the few that still happen.
+    """
+    rng = random.Random(seed)
+    total = WEEKS * 7
+
+    def ranked(cell, visited):
+        options = [n for n in _neighbours(cell) if n not in visited]
+        rng.shuffle(options)                          # random tie-break
+        options.sort(key=lambda n: sum(1 for m in _neighbours(n)
+                                       if m not in visited))
+        return options
+
+    # (0, 0) is on the majority colour of the board's checkerboard split, which
+    # is a precondition for a Hamiltonian path to exist on an odd-sized grid.
+    start = (0, 0)
+    path, visited = [start], {start}
+    stack = [ranked(start, visited)]
+    budget = 500_000
+
+    while len(path) < total:
+        budget -= 1
+        if budget <= 0 or not path:
+            return None
+        options = stack[-1]
+        if not options:
+            visited.discard(path.pop())               # dead end, step back
+            stack.pop()
+            continue
+        nxt = options.pop(0)
+        path.append(nxt)
+        visited.add(nxt)
+        stack.append(ranked(nxt, visited))
+
+    return path
+
+
+def snake_layer(grid_x, grid_y, step, order):
     """Return (body_elements, css, eat_delays) for the snake and its meal."""
-    order = snake_order()
     steps = len(order) - 1
     dur = round(steps * step, 2)
 
@@ -177,11 +231,17 @@ def snake_layer(grid_x, grid_y, step):
     for i, (col, row) in enumerate(order):
         delays[(col, row)] = i * step
 
+    # The route cannot close into a cycle -- 371 cells split 186/185 across the
+    # board's two colours, so no Hamiltonian cycle exists -- and the head would
+    # otherwise teleport from the last cell back to the first. Fading out at the
+    # end and in at the start reads as the snake leaving and re-entering.
     css = (
         "@keyframes ride{" + "".join(frames) + "}"
+        "@keyframes glide{0%{opacity:0}3%{opacity:1}95%{opacity:1}100%{opacity:0}}"
         "@keyframes eaten{0%{opacity:1}1%{opacity:0}"
         "86%{opacity:0}96%{opacity:1}100%{opacity:1}}"
-        f".sn{{animation:ride {dur}s linear infinite both}}"
+        f".sn{{animation:ride {dur}s linear infinite both,"
+        f"glide {dur}s linear infinite both}}"
         f".e{{animation:eaten {dur}s linear infinite both}}"
         "@media (prefers-reduced-motion:reduce){"
         ".sn{display:none}.e{animation:none;opacity:1}}"
@@ -219,8 +279,20 @@ def build():
     snake = bool(cfg.get("snake", True))
     if snake:
         step = max(0.02, float(cfg.get("snake_speed", SNAKE_STEP)))
-        segments, snake_css, eat_delays = snake_layer(grid_x, grid_y, step)
-        print(f"  snake: {step}s per cell, {round(370 * step, 1)}s loop")
+        order, route = None, cfg.get("snake_path", "wander")
+        if route == "wander":
+            # Seeded by the date so a run is reproducible but the snake picks
+            # a fresh route each day.
+            seed = cfg.get("snake_seed") or dt.date.today().toordinal()
+            order = wander_order(seed)
+            if order is None:
+                print("  wander search stalled, falling back to serpentine",
+                      file=sys.stderr)
+        if order is None:
+            order, route = snake_order(), "serpentine"
+        segments, snake_css, eat_delays = snake_layer(grid_x, grid_y, step, order)
+        print(f"  snake: {route}, {step}s per cell, "
+              f"{round((len(order) - 1) * step, 1)}s loop")
 
     # Empty slots first: eaten cells fade to reveal this layer underneath.
     for col, week in enumerate(columns):

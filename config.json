@@ -4,6 +4,7 @@
   "avatar": "assets/avatar.jpg",
   "snake": true,
   "snake_speed": 0.11,
+  "snake_path": "wander",
   "ascii": {
     "cols": 46,
     "invert": false,
