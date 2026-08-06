@@ -3,6 +3,7 @@
   "username": "sevbanarkn",
   "avatar": "assets/avatar.jpg",
   "snake": true,
+  "snake_speed": 0.11,
   "ascii": {
     "cols": 46,
     "invert": false,

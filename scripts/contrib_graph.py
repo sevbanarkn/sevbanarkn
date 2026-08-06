@@ -24,7 +24,8 @@ LABEL_W = 30                 # left gutter for Mon/Wed/Fri
 MONTH_H = 18
 WEEKS = 53
 
-SNAKE_STEP = 0.05            # seconds the head spends crossing one cell
+SNAKE_STEP = 0.11            # default seconds the head spends crossing one
+                             # cell; override with "snake_speed" in config.json
 SNAKE_COLOURS = ["#bc8cff", "#a371f7", "#8957e5", "#6e40c9", "#553098"]
 
 DAY_LABELS = {1: "Mon", 3: "Wed", 5: "Fri"}
@@ -144,11 +145,11 @@ def snake_order():
     return order
 
 
-def snake_layer(grid_x, grid_y):
-    """Return (body_elements, css) for the snake and the cells it eats."""
+def snake_layer(grid_x, grid_y, step):
+    """Return (body_elements, css, eat_delays) for the snake and its meal."""
     order = snake_order()
     steps = len(order) - 1
-    dur = round(steps * SNAKE_STEP, 2)
+    dur = round(steps * step, 2)
 
     def centre(col, row):
         return (grid_x + col * PITCH + CELL / 2, grid_y + row * PITCH + CELL / 2)
@@ -166,7 +167,7 @@ def snake_layer(grid_x, grid_y):
         elements.append(
             f'  <rect class="sn" x="{-size / 2:.1f}" y="{-size / 2:.1f}" '
             f'width="{size}" height="{size}" rx="{3 - k * 0.4:.1f}" fill="{colour}" '
-            f'style="animation-delay:{k * SNAKE_STEP:.3f}s"/>'
+            f'style="animation-delay:{k * step:.3f}s"/>'
         )
     elements.reverse()          # tail first so the head paints on top
 
@@ -174,7 +175,7 @@ def snake_layer(grid_x, grid_y):
     # the head comes back round, so the loop never visibly restarts.
     delays = {}
     for i, (col, row) in enumerate(order):
-        delays[(col, row)] = i * SNAKE_STEP
+        delays[(col, row)] = i * step
 
     css = (
         "@keyframes ride{" + "".join(frames) + "}"
@@ -217,7 +218,9 @@ def build():
 
     snake = bool(cfg.get("snake", True))
     if snake:
-        segments, snake_css, eat_delays = snake_layer(grid_x, grid_y)
+        step = max(0.02, float(cfg.get("snake_speed", SNAKE_STEP)))
+        segments, snake_css, eat_delays = snake_layer(grid_x, grid_y, step)
+        print(f"  snake: {step}s per cell, {round(370 * step, 1)}s loop")
 
     # Empty slots first: eaten cells fade to reveal this layer underneath.
     for col, week in enumerate(columns):
