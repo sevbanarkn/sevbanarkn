@@ -15,7 +15,7 @@
 
 ```console
 sevbanarkn@github:~$ whoami
-Full-stack developer. .NET and C# on the back, React and TypeScript on the front.
+Full-stack developer. .NET and C# on the back, React + TypeScript + Vite on the front.
 ERP, logistics and workflow systems at Barlas Lojistik.
 
 sevbanarkn@github:~$ ls ~/interests

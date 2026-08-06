@@ -13,7 +13,7 @@
       ["Role",     "Full-stack Developer"],
       ["Company",  "Barlas Lojistik"],
       ["Backend",  ".NET 10 / C# / ASP.NET Core"],
-      ["Frontend", "React / TypeScript"],
+      ["Frontend", "React / TypeScript / Vite"],
       ["Database", "MSSQL / Dapper / EF Core"],
       ["Also",     "Python / Docker"],
       ["Focus",    "ERP, logistics & workflow systems"],
